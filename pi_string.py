@@ -8,4 +8,11 @@ pi_string = ''
 for line in lines:
     pi_string += line.strip()
 
-print(pi_string[:52], len(pi_string))
+#print(pi_string[:52], len(pi_string))
+
+birthday = input("ENTER birthay:")
+if birthday in pi_string:
+    print("It appears")
+
+else:
+    print("It doesnt appear")

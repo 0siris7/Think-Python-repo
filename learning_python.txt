@@ -1,0 +1,5 @@
+In Python you can use for loops.
+In Python you can use lists.
+In Python you can use dictionaries.
+In Python you can use list comprehension.
+In Python you can read files and do stuff to them.

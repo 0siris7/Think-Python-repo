@@ -1,0 +1,25 @@
+git init - initialize a empty repo
+git status - status stage
+git add filename/ . - add file to be tracked
+git rm --cached file - remove file from tracking
+git log --oneline - provides log of commit
+git commit -m "message" - commit tracked files
+
+Undoing stuff:
+
+git checkout logname - check a commit but doesnt change anything
+git revert logname - revert to a previous stage
+
+branch
+
+git checkout -b branch_name - create a branch and switch to it
+git checkout branch_name - switch to that branch_name
+git branch -d/-D branch_name - remove branch
+git branch -a - show all branch
+
+git merge branch_name - merges branch_name to branch currently on
+
+remote repo
+
+git remote add alias [repo link]
+git push repo_name master/ branch_name - push to repo
