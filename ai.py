@@ -1,207 +1,119 @@
+import random
+import time
 
-# importing speech recognition package from google api
 import speech_recognition as sr
-import playsound # to play saved mp3 file
-from gtts import gTTS # google text to speech
-import os # to save/open files
-import wolframalpha # to calculate strings into formula
-from selenium import webdriver # to control browser operations
-
-num = 1
-def assistant_speaks(output):
-    global num
-
-    # num to rename every audio file
-    # with different name to remove ambiguity
-    num += 1
-    print("PerSon : ", output)
-
-    toSpeak = gTTS(text = output, lang ='en', slow = False)
-    # saving the audio file given by google text to speech
-    file = "str(num)+".mp3
-    toSpeak.save(file)
-
-    # playsound package is used to play the same file.
-    playsound.playsound(file, True)
-    os.remove(file)
 
 
+def recognize_speech_from_mic(recognizer, microphone):
+    """Transcribe speech from recorded from `microphone`.
 
-def get_audio():
+    Returns a dictionary with three keys:
+    "success": a boolean indicating whether or not the API request was
+               successful
+    "error":   `None` if no error occured, otherwise a string containing
+               an error message if the API could not be reached or
+               speech was unrecognizable
+    "transcription": `None` if speech could not be transcribed,
+               otherwise a string containing the transcribed text
+    """
+    # check that recognizer and microphone arguments are appropriate type
+    if not isinstance(recognizer, sr.Recognizer):
+        raise TypeError("`recognizer` must be `Recognizer` instance")
 
-    rObject = sr.Recognizer()
-    audio = ''
+    if not isinstance(microphone, sr.Microphone):
+        raise TypeError("`microphone` must be `Microphone` instance")
 
-    with sr.Microphone() as source:
-        print("Speak...")
+    # adjust the recognizer sensitivity to ambient noise and record audio
+    # from the microphone
+    with microphone as source:
+        recognizer.adjust_for_ambient_noise(source)
+        audio = recognizer.listen(source)
 
-        # recording the audio using speech recognition
-        audio = rObject.listen(source, phrase_time_limit = 5)
-    print("Stop.") # limit 5 secs
+    # set up the response object
+    response = {
+        "success": True,
+        "error": None,
+        "transcription": None
+    }
 
+    # try recognizing the speech in the recording
+    # if a RequestError or UnknownValueError exception is caught,
+    #     update the response object accordingly
     try:
+        response["transcription"] = recognizer.recognize_google(audio)
+    except sr.RequestError:
+        # API was unreachable or unresponsive
+        response["success"] = False
+        response["error"] = "API unavailable"
+    except sr.UnknownValueError:
+        # speech was unintelligible
+        response["error"] = "Unable to recognize speech"
 
-        text = rObject.recognize_google(audio, language ='en-US')
-        print("You : ", text)
-        return text
-
-    except:
-
-        assistant_speaks("Could not understand your audio, PLease try again !")
-        return 0
+    return response
 
 
-# Driver Code
 if __name__ == "__main__":
-    assistant_speaks("What's your name, Human?")
-    name ='Human'
-    name = get_audio()
-    assistant_speaks("Hello, " + name + '.')
+    # set the list of words, maxnumber of guesses, and prompt limit
+    WORDS = ["apple", "banana", "grape", "orange", "mango", "lemon"]
+    NUM_GUESSES = 3
+    PROMPT_LIMIT = 5
 
-    while(1):
+    # create recognizer and mic instances
+    recognizer = sr.Recognizer()
+    microphone = sr.Microphone()
 
-        assistant_speaks("What can i do for you?")
-        text = get_audio().lower()
+    # get a random word from the list
+    word = random.choice(WORDS)
 
-        if text == 0:
-            continue
+    # format the instructions string
+    instructions = (
+        "I'm thinking of one of these words:\n"
+        "{words}\n"
+        "You have {n} tries to guess which one.\n"
+    ).format(words=', '.join(WORDS), n=NUM_GUESSES)
 
-        if "exit" in str(text) or "bye" in str(text) or "sleep" in str(text):
-            assistant_speaks("Ok bye, "+ name+'.')
+    # show instructions and wait 3 seconds before starting the game
+    print(instructions)
+    time.sleep(3)
+
+    for i in range(NUM_GUESSES):
+        # get the guess from the user
+        # if a transcription is returned, break out of the loop and
+        #     continue
+        # if no transcription returned and API request failed, break
+        #     loop and continue
+        # if API request succeeded but no transcription was returned,
+        #     re-prompt the user to say their guess again. Do this up
+        #     to PROMPT_LIMIT times
+        for j in range(PROMPT_LIMIT):
+            print('Guess {}. Speak!'.format(i+1))
+            guess = recognize_speech_from_mic(recognizer, microphone)
+            if guess["transcription"]:
+                break
+            if not guess["success"]:
+                break
+            print("I didn't catch that. What did you say?\n")
+
+        # if there was an error, stop the game
+        if guess["error"]:
+            print("ERROR: {}".format(guess["error"]))
             break
 
-        # calling process text to process the query
-        process_text(text)
+        # show the user the transcription
+        print("You said: {}".format(guess["transcription"]))
 
-def process_text(input):
-    try:
-        if 'search' in input or 'play' in input:
-            # a basic web crawler using selenium
-            search_web(input)
-            return
+        # determine if guess is correct and if any attempts remain
+        guess_is_correct = guess["transcription"].lower() == word.lower()
+        user_has_more_attempts = i < NUM_GUESSES - 1
 
-        elif "who are you" in input or "define yourself" in input:
-            speak = '''Hello, I am Person. Your personal Assistant.
-            I am here to make your life easier. You can command me to perform
-            various tasks such as calculating sums or opening applications etcetra'''
-            assistant_speaks(speak)
-            return
-
-        elif "who made you" in input or "created you" in input:
-            speak = "I have been created by Sheetansh Kumar."
-            assistant_speaks(speak)
-            return
-
-        elif "geeksforgeeks" in input:# just
-            speak = """Geeks for Geeks is the Best Online Coding Platform for learning."""
-            assistant_speaks(speak)
-            return
-
-        elif "calculate" in input.lower():
-
-            # write your wolframalpha app_id here
-            app_id = "WOLFRAMALPHA_APP_ID"
-            client = wolframalpha.Client(app_id)
-
-            indx = input.lower().split().index('calculate')
-            query = input.split()[indx + 1:]
-            res = client.query(' '.join(query))
-            answer = next(res.results).text
-            assistant_speaks("The answer is " + answer)
-            return
-
-        elif 'open' in input:
-
-            # another function to open
-            # different application availaible
-            open_application(input.lower())
-            return
-
+        # determine if the user has won the game
+        # if not, repeat the loop if user has more attempts
+        # if no attempts left, the user loses the game
+        if guess_is_correct:
+            print("Correct! You win!".format(word))
+            break
+        elif user_has_more_attempts:
+            print("Incorrect. Try again.\n")
         else:
-
-            assistant_speaks("I can search the web for you, Do you want to continue?")
-            ans = get_audio()
-            if 'yes' in str(ans) or 'yeah' in str(ans):
-                search_web(input)
-            else:
-                return
-    except :
-
-        assistant_speaks("I don't understand, I can search the web for you, Do you want to continue?")
-        ans = get_audio()
-        if 'yes' in str(ans) or 'yeah' in str(ans):
-            search_web(input)
-
-
-
-def search_web(input):
-
-    driver = webdriver.Firefox()
-    driver.implicitly_wait(1)
-    driver.maximize_window()
-
-    if 'youtube' in input.lower():
-
-        assistant_speaks("Opening in youtube")
-        indx = input.lower().split().index('youtube')
-        query = input.split()[indx + 1:]
-        driver.get("http://www.youtube.com/results?search_query =" + '+'.join(query))
-        return
-
-    elif 'wikipedia' in input.lower():
-
-        assistant_speaks("Opening Wikipedia")
-        indx = input.lower().split().index('wikipedia')
-        query = input.split()[indx + 1:]
-        driver.get("https://en.wikipedia.org/wiki/" + '_'.join(query))
-        return
-
-    else:
-
-        if 'google' in input:
-
-            indx = input.lower().split().index('google')
-            query = input.split()[indx + 1:]
-            driver.get("https://www.google.com/search?q =" + '+'.join(query))
-
-        elif 'search' in input:
-
-            indx = input.lower().split().index('google')
-            query = input.split()[indx + 1:]
-            driver.get("https://www.google.com/search?q =" + '+'.join(query))
-
-        else:
-
-            driver.get("https://www.google.com/search?q =" + '+'.join(input.split()))
-
-        return
-
-
-# function used to open application
-# present inside the system.
-def open_application(input):
-
-    if "chrome" in input:
-        assistant_speaks("Google Chrome")
-        os.startfile('C:\Program Files (x86)\Google\Chrome\Application\chrome.exe')
-        return
-
-    elif "firefox" in input or "mozilla" in input:
-        assistant_speaks("Opening Mozilla Firefox")
-        os.startfile('C:\Program Files\Mozilla Firefox\\firefox.exe')
-        return
-
-    elif "word" in input:
-        assistant_speaks("Opening Microsoft Word")
-        os.startfile('C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Office 2013\\Word 2013.lnk')
-        return
-
-    elif "excel" in input:
-        assistant_speaks("Opening Microsoft Excel")
-        os.startfile('C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Microsoft Office 2013\\Excel 2013.lnk')
-        return
-
-    else:
-
-        assistant_speaks("Application not available")
-        return
+            print("Sorry, you lose!\nI was thinking of '{}'.".format(word))
+            break
